@@ -66,4 +66,42 @@ if yuklenen_resim is not None:
         noktalar = metinden_koordinat_cikar(okunan_metin)
         
     if noktalar:
-        st.success(f"Har
+        st.success(f"Harika! Görüntüden {len(noktalar)} adet koordinat okundu.")
+        with st.expander("Okunan Değerleri Kontrol Et"):
+            for n in noktalar:
+                st.write(f"Nokta: {n['no']} | Y: {n['y']} | X: {n['x']}")
+        
+        with st.expander("Geliştirici Modu: OCR Arka Planda Ne Okudu?"):
+            st.text(okunan_metin)
+    else:
+        st.error("Görüntüden koordinat okunamadı. Lütfen manuel girişi deneyin.")
+        with st.expander("Geliştirici Modu: OCR Arka Planda Ne Okudu?"):
+            st.text(okunan_metin)
+
+st.markdown("---")
+
+# ALTERNATİF SEÇENEK: MANUEL GİRİŞ
+st.subheader("2. Seçenek: Manuel Veri Girişi")
+with st.expander("Görsel yüklemek istemiyorsanız buraya tıklayın"):
+    st.info("Koordinatları 'Nokta No  Y  X' formatında, aralarında boşluk bırakarak alt alta yapıştırın.")
+    manuel_metin = st.text_area("Koordinat Verileri:", height=150, placeholder="Örnek:\n1  507597.29  4136997.02\n2  507590.59  4136978.38")
+    
+    if st.button("Manuel Verileri Çevir"):
+        noktalar = metinden_koordinat_cikar(manuel_metin)
+        if noktalar:
+            st.success(f"Manuel girişten {len(noktalar)} adet koordinat okundu.")
+        else:
+            st.error("Girdiğiniz format hatalı. Lütfen örnekteki gibi girdiğinizden emin olun.")
+
+# --- İNDİRME BUTONU ---
+if noktalar:
+    st.markdown("### Sonuç Hazır!")
+    dxf_verisi = dxf_metni_olustur(noktalar)
+    
+    st.download_button(
+        label="📥 DXF Dosyasını İndir",
+        data=dxf_verisi,
+        file_name="proje_koordinatlari.dxf",
+        mime="application/dxf"
+    )
+    st.caption("İndirdiğiniz dosyayı AutoCAD'de açtıktan sonra Z (Zoom) ve E (Extents) komutlarını uygulamayı unutmayın.")
