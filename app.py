@@ -1,4 +1,3 @@
-
 import streamlit as st
 import cv2
 import pytesseract
@@ -27,6 +26,7 @@ def dxf_metni_olustur(noktalar):
 
 def metinden_koordinat_cikar(metin):
     """Verilen metindeki X ve Y değerlerini Regex ile bulur."""
+    # Sadece doğru formatta yan yana dizilmiş rakamları ve noktaları yakalar
     desen = r"(\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)"
     eslesmeler = re.findall(desen, metin)
     
@@ -47,19 +47,33 @@ yuklenen_resim = st.file_uploader("Koordinat tablosunun fotoğrafını yükleyin
 noktalar = []
 
 if yuklenen_resim is not None:
-    # Resmi Streamlit'ten okuyup OpenCV'nin anlayacağı formata çevirme
+    # Resmi Streamlit'ten okuma
     dosya_baytlari = np.asarray(bytearray(yuklenen_resim.read()), dtype=np.uint8)
     img = cv2.imdecode(dosya_baytlari, 1)
     
-    with st.spinner('Resim okunuyor, lütfen bekleyin...'):
-        gri = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        okunan_metin = pytesseract.image_to_string(gri)
+    with st.spinner('Görüntü netleştiriliyor ve koordinatlar okunuyor...'):
+        # --- GÖRÜNTÜ İYİLEŞTİRME (PRE-PROCESSING) ---
+        # 1. Resmi 2 kat büyüt
+        img_buyuk = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        # 2. Gri tonlamaya çevir
+        gri = cv2.cvtColor(img_buyuk, cv2.COLOR_BGR2GRAY)
+        # 3. Kontrastı patlat (Yazılar simsiyah, arka plan bembeyaz)
+        _, temiz_resim = cv2.threshold(gri, 150, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        
+        # --- OCR AYARLARI ---
+        # Sadece rakamlar, noktalar ve boşlukları oku. PSM 6: Tablo düzenini koru
+        ozel_ayar = r'--psm 6 -c tessedit_char_whitelist="0123456789. \n"'
+        okunan_metin = pytesseract.image_to_string(temiz_resim, config=ozel_ayar)
+        
         noktalar = metinden_koordinat_cikar(okunan_metin)
         
     if noktalar:
-        st.success(f"Harika! Görüntüden {len(noktalar)} adet koordinat başarıyla okundu.")
+        st.success(f"Harika! Görüntüden {len(noktalar)} adet koordinat yüksek doğrulukla okundu.")
+        with st.expander("Okunan Değerleri Kontrol Et"):
+            for n in noktalar:
+                st.write(f"Nokta: {n['no']} | Y: {n['y']} | X: {n['x']}")
     else:
-        st.error("Görüntüden koordinat okunamadı. Çözünürlük düşük olabilir veya format desteklenmiyor. Lütfen manuel girişi deneyin.")
+        st.error("Görüntüden koordinat okunamadı. Resim çok bulanık olabilir. Lütfen manuel girişi deneyin.")
 
 st.markdown("---")
 
@@ -72,7 +86,7 @@ with st.expander("Görsel yüklemek istemiyorsanız buraya tıklayın"):
     if st.button("Manuel Verileri Çevir"):
         noktalar = metinden_koordinat_cikar(manuel_metin)
         if noktalar:
-            st.success(f"Manuel girişten {len(noktalar)} adet koordinat başarıyla okundu.")
+            st.success(f"Manuel girişten {len(noktalar)} adet koordinat okundu.")
         else:
             st.error("Girdiğiniz format hatalı. Lütfen örnekteki gibi girdiğinizden emin olun.")
 
@@ -87,4 +101,4 @@ if noktalar:
         file_name="proje_koordinatlari.dxf",
         mime="application/dxf"
     )
-    st.caption("İndirdiğiniz dosyayı AutoCAD veya ZWCAD'de açtıktan sonra Z (Zoom) ve E (Extents) komutlarını uygulamayı unutmayın.")
+    st.caption("İndirdiğiniz dosyayı AutoCAD'de açtıktan sonra Z (Zoom) ve E (Extents) komutlarını uygulamayı unutmayın.")
